@@ -1,0 +1,1897 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>COMLURB - Painel de Controle e Aplicativo de Praças</title>
+  
+  <!-- Tailwind CSS para o visual moderno e bonito -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- React e ReactDOM (versões de produção via CDN) -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  
+  <!-- Babel para rodar o código React direto no navegador sem complicação -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    /* Transições suaves */
+    .animate-fadeIn {
+      animation: fadeIn 0.3s ease-out forwards;
+    }
+    .animate-scaleUp {
+      animation: scaleUp 0.3s ease-out forwards;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes scaleUp {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    /* Estilização da barra de rolagem */
+    .scrollbar-thin::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .scrollbar-thin::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    .scrollbar-thin::-webkit-scrollbar-thumb {
+      background: #475569;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans min-h-screen">
+
+  <!-- Onde o React vai renderizar todo o aplicativo -->
+  <div id="root"></div>
+
+  <!-- Nosso script com o código do aplicativo -->
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // --- BANCO DE DADOS DE PRAÇAS EXTRAÍDO DIRETAMENTE DO SEU ARQUIVO CSV ---
+    const PRACAS_MOCK = [
+      { cod: "1101001", nome: "PRACA CONDESSA PAULO DE FRONTIN", endereco: "AVENIDA PAULO DE FRONTIN, 519 / RUA ESTRELA", bairro: "RIO COMPRIDO", ap: "1", ugu: "UGU-S", tipo: "C" },
+      { cod: "1101002", nome: "INOMINADA - AVENIDA REPUBLICA DO CHILE - CENTRO", endereco: "AVENIDA REPUBLICA DO CHILE / RUA DO LAVRADIO, 75", bairro: "CENTRO", ap: "1", ugu: "UGU-S", tipo: "C" },
+      { cod: "1101003", nome: "INOMINADA - AVENIDA REPUBLICA DO PARAGUAI - CENTRO", endereco: "AVENIDA REPUBLICA DO PARAGUAI, S/N / RUA DO REZENDE, 2", bairro: "CENTRO", ap: "1", ugu: "UGU-S", tipo: "C" },
+      { cod: "1101004", nome: "INOMINADA - RUA BERGAMO 320 - ROCHA", endereco: "RUA BERGAMO, 320", bairro: "ROCHA", ap: "3", ugu: "UGU-N", tipo: "C" },
+      { cod: "1101005", nome: "INOMINADA - ESTRADA DO BOIUNA, 200 - TAQUARA", endereco: "ESTRADA DO BOIUNA, 200", bairro: "TAQUARA", ap: "4", ugu: "UGU-B", tipo: "C" },
+      { cod: "1101006", nome: "PRACA MATILDE GOMES", endereco: "RUA GILDO GIRELLI, 4", bairro: "SANTA CRUZ", ap: "5", ugu: "UGU-O", tipo: "C" },
+      { cod: "1101007", nome: "PRACA SAENS PENA", endereco: "RUA CONDE DE BONFIM", bairro: "TIJUCA", ap: "2", ugu: "UGU-N", tipo: "C" },
+      { cod: "1101008", nome: "PARQUE MADUREIRA", endereco: "RUA CARVALHO DE SOUZA", bairro: "MADUREIRA", ap: "3", ugu: "UGU-N", tipo: "P" },
+      { cod: "1101009", nome: "PRACA SECA", endereco: "RUA CANDIDO BENICIO", bairro: "PRACA SECA", ap: "4", ugu: "UGU-O", tipo: "C" },
+      { cod: "1101010", nome: "PARCAO DA LAGOA", endereco: "AVENIDA EPITACIO PESSOA", bairro: "LAGOA", ap: "2", ugu: "UGU-S", tipo: "P" },
+      { cod: "1101011", nome: "PRACA XV", endereco: "RUA PRIMEIRO DE MARCO", bairro: "CENTRO", ap: "1", ugu: "UGU-S", tipo: "C" },
+      { cod: "1101012", nome: "PRACA DA BANDEIRA", endereco: "RUA MARIZ E BARROS", bairro: "PRACA DA BANDEIRA", ap: "2", ugu: "UGU-N", tipo: "C" },
+      { cod: "1101013", nome: "PRACA NOSSAS SENHORA DA PAZ", endereco: "RUA VISCONDE DE PIRAJA", bairro: "IPANEMA", ap: "2", ugu: "UGU-S", tipo: "C" },
+      { cod: "1101014", nome: "PARQUE RAMOS JONAS", endereco: "RUA MARQUES DE VALENCA", bairro: "TIJUCA", ap: "2", ugu: "UGU-N", tipo: "P" },
+      { cod: "1101015", nome: "PRACA SERZEDELO CORREIA", endereco: "RUA BARATA RIBEIRO", bairro: "COPACABANA", ap: "2", ugu: "UGU-S", tipo: "C" },
+      { cod: "1101016", nome: "INOMINADA - RUA MARECHAL JOAQUIM INACIO 538", endereco: "RUA MARECHAL JOAQUIM INACIO, 538", bairro: "REALENGO", ap: "5", ugu: "UGU-O", tipo: "C" }
+    ];
+
+    const EQUIPE_ERGON_MOCK = [
+      { matricula: '124.532-1', nome: 'Carlos Alberto Silva', funcao: 'Encarregado de Manutenção' },
+      { matricula: '984.112-4', nome: 'Jorge Souza Santos', funcao: 'Gari de Manutenção A' },
+      { matricula: '452.199-3', nome: 'Sebastião Mendes', funcao: 'Gari de Manutenção B' },
+      { matricula: '311.204-5', nome: 'Marcos Paulo Vieira', funcao: 'Pintor' },
+      { matricula: '882.103-2', nome: 'Ronaldo Lima', funcao: 'Motorista / Operador' }
+    ];
+
+    // --- NOVA LISTA OFICIAL DE PREFIXOS TOYOTA/HILUX CONFORME SOLICITADO ---
+    const FROTA_MOCK = [
+      { prefixo: "21-0305", modelo: "TOYOTA/HILUX" },
+      { prefixo: "21-0306", modelo: "TOYOTA/HILUX" },
+      { prefixo: "21-0308", modelo: "TOYOTA/HILUX" },
+      { prefixo: "21-1205", modelo: "TOYOTA/HILUX" },
+      { prefixo: "21-1206", modelo: "TOYOTA/HILUX" },
+      { prefixo: "21-1405", modelo: "TOYOTA/HILUX" },
+      { prefixo: "21-1406", modelo: "TOYOTA/HILUX" },
+      { prefixo: "21-1505", modelo: "TOYOTA/HILUX" },
+      { prefixo: "21-1506", modelo: "TOYOTA/HILUX" },
+      { prefixo: "21-1705", modelo: "TOYOTA/HILUX" },
+      { prefixo: "21-1706", modelo: "TOYOTA/HILUX" },
+      { prefixo: "21-1707", modelo: "TOYOTA/HILUX" },
+      { prefixo: "21-1708", modelo: "TOYOTA/HILUX" },
+      { prefixo: "21-1709", modelo: "TOYOTA/HILUX" },
+      { prefixo: "21-1710", modelo: "TOYOTA/HILUX" }
+    ];
+
+    const ITENS_PRACA_MOCK = [
+      { id: 'cat-1', categoria: 'Gradeamento & Cercas', itens: ['Grade Externa (Metal)', 'Cerca de Proteção Parcão (Eucalipto)', 'Portão de Acesso'] },
+      { id: 'cat-2', categoria: 'Mobiliário Urbano', itens: ['Banco de Concreto', 'Banco de Madeira/Ferro'] },
+      { id: 'cat-3', categoria: 'Brinquedos (Playground)', itens: ['Escorregador de Eucalipto', 'Balanço de Metal', 'Gangorra de Madeira', 'Gira-Gira'] },
+      { id: 'cat-4', categoria: 'Áreas Coletivas & Esportes', itens: ['Tabela de Basquete', 'Baliza', 'Alambrado da Quadra', 'Piso de Saibro/Grama'] }
+    ];
+
+    // --- LISTAGEM COMPLETA EXTRAÍDA DO ARQUIVO PLANILHA 2 DO USUÁRIO ---
+    const SERVICOS_LIST = [
+      "PINTURA", "ADIADO POR: CHUVA", "ALVENARIA", "AMARRACAO", "APLICACAO DE ANTICORROSIVO", 
+      "CHUMBAMENTO", "ENVERNIZAMENTO", "ESCAVACAO", "INSTALACAO", "JARDINAGEM", "LIXAMENTO", 
+      "OUTROS", "PLANTIO", "RASPAGEM", "REMOCAO", "REPARO", "SOLDA"
+    ];
+
+    const ITENS_LIST = [
+      "BARRA FIXA", "ALAMBRADO", "BALANCO DE EUCALIPTO", "BALANCO DE METAL (FABRICA)", "BALIZA", 
+      "BANCO DE 1 ASSENTO DE CONCRETO", "BANCO DE 1 ASSENTO DE TRONCO", "BANCO DE ARQUIBANCADA", 
+      "BANCO DE METAL", "BANCO EXTENSIVEL", "BANCO LONGO DE CONCRETO", "BANCO LONGO DE RIPA", 
+      "BANCO LONGO DE TRONCO", "BARRA DE CALISTENIA", "BARRA DE SALTO (PARCAO)", "BARRA PARALELA", 
+      "BICICLETARIO", "MURETA", "MURO", "PARCAO", "PERGOLADO", "PILAR / COLUNA", "PISO DE CONCRETO", 
+      "PISO EMBORRACHADO", "PISO GRAMADO", "PISTA DE OBSTACULOS", "PISTA DE PATINS", "PISTA DE SKATE", 
+      "PLATAFORMA DE EQUILIBRIO", "PLATAFORMA DE MADEIRA (PARCAO)", "PLAYGROUND DE EUCALIPTO", 
+      "PNEU", "PORTAO", "POSTE", "PRANCHA DE ABDOMINAL", "PRANCHA DE EQUILIBRIO (PARCAO)"
+    ];
+
+    const MATERIAIS_LIST = [
+      "TINTA ESMALTE SINTETICO - AZUL", "ALCA DE GANGORRA", "ANILHA MANILHA", "ARAME GALVANIZADO", 
+      "AREIA LAVADA", "AREOLA", "ARO DE BASQUETE", "ARRUELA", "ARRUELA DE ACO INOX 3/8", 
+      "ARRUELA LISA EM FERRO 5/16", "ASSENTO DE BALANCO", "BALANCO DE EUCALIPTO", 
+      "BALANCO DE METAL (FABRICA)", "BANCO DE CONCRETO", "BARRA REDONDA 1/2 (CM)", "ABRACADEIRA", 
+      "BROXA RETANGULAR", "ROLO DE LA 9 CM", "SAIBRO", "SUPORTE P/ ROLO DE 23CM (TIPO GAIOLA)", 
+      "TABELA DE BASQUETE", "TELA GALVANIZADA 30M²", "TINTA ACRILICO - AMARELO", "TINTA ACRILICO - AZUL", 
+      "TINTA ACRILICO - BRANCO", "TINTA ACRILICO - CINZA", "TINTA ACRILICO - CONCRETO", 
+      "TINTA ACRILICO - LARANJA", "TINTA ACRILICO - MARROM", "TINTA ACRILICO - PRETO", 
+      "TINTA ACRILICO - VERDE", "TINTA ACRILICO - VERMELHO", "TINTA ESMALTE SINTETICO - AMARELO", 
+      "TINTA ESMALTE SINTETICO - BRANCO", "TINTA ESMALTE SINTETICO - CINZA", "TINTA ESMALTE SINTETICO - CONCRETO"
+    ];
+
+    function App() {
+      // --- SISTEMA DE SELEÇÃO DE ABAS ---
+      const [workspaceTab, setWorkspaceTab] = useState('split'); 
+
+      // --- SUB-FLUXO: 'vistoria' ou 'os' ---
+      const [subFlow, setSubFlow] = useState('vistoria'); 
+
+      // --- Estados Globais Compartilhados ---
+      const [step, setStep] = useState(1);
+      
+      // Identificação do Vistoriador, Tipo de Entrada, Data da Vistoria e Nova Intervenção
+      const [vistoriadorNome, setVistoriadorNome] = useState('');
+      const [vistoriadorMatricula, setVistoriadorMatricula] = useState('');
+      const [tipoEntrada, setTipoEntrada] = useState('PROGRAMACAO');
+      const [dataVistoria, setDataVistoria] = useState(new Date().toISOString().split('T')[0]);
+      const [intervencao, setIntervencao] = useState('');
+      
+      // Estado de Data de Programação
+      const [dataProgramacao, setDataProgramacao] = useState(new Date().toISOString().split('T')[0]);
+      const [semDataProgramacao, setSemDataProgramacao] = useState(false);
+      
+      // Localização com Campo de Busca e Autocomplete
+      const [selectedPraca, setSelectedPraca] = useState(null);
+      const [searchQuery, setSearchQuery] = useState('');
+      const [showSuggestions, setShowSuggestions] = useState(false);
+      const [gpsSimulated, setGpsSimulated] = useState(true);
+
+      // Referência para controlar clique fora do autocomplete
+      const suggestionsRef = useRef(null);
+
+      // Fechar lista de sugestões ao clicar fora
+      useEffect(() => {
+        function handleClickOutside(event) {
+          if (suggestionsRef.current && !suggestionsRef.current.contains(event.target)) {
+            setShowSuggestions(false);
+          }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+      }, []);
+
+      // Status das Vistorias (Anexo II)
+      const [inspectionStatus, setInspectionStatus] = useState({});
+
+      // Equipe de Execução (Ergon + Adicionados Manualmente)
+      const [selectedTeam, setSelectedTeam] = useState([]);
+      const [customMemberName, setCustomMemberName] = useState('');
+      const [customMemberMatricula, setCustomMemberMatricula] = useState('');
+      const [showCustomMemberForm, setShowCustomMemberForm] = useState(false);
+
+      // Frota (Array para manter compatibilidade)
+      const [selectedFrota, setSelectedFrota] = useState([]);
+      
+      // --- NOVO ESTADO DINÂMICO DE LINHAS DE SERVIÇOS E MATERIAIS ---
+      const [servicosMateriaisRows, setServicosMateriaisRows] = useState([
+        { id: Date.now(), servico: "", qtdServico: 1, item: "", qtdItem: 1, material: "", qtdMaterial: 1 }
+      ]);
+
+      // Métodos para gerenciar linhas dinâmicas
+      const handleAddRow = (index) => {
+        const newRow = { id: Date.now() + Math.random(), servico: "", qtdServico: 1, item: "", qtdItem: 1, material: "", qtdMaterial: 1 };
+        const updated = [...servicosMateriaisRows];
+        updated.splice(index + 1, 0, newRow);
+        setServicosMateriaisRows(updated);
+      };
+
+      const handleRemoveRow = (id) => {
+        if (servicosMateriaisRows.length === 1) {
+          // Mantém pelo menos uma linha limpa
+          setServicosMateriaisRows([{ id: Date.now(), servico: "", qtdServico: 1, item: "", qtdItem: 1, material: "", qtdMaterial: 1 }]);
+          return;
+        }
+        setServicosMateriaisRows(servicosMateriaisRows.filter(r => r.id !== id));
+      };
+
+      const handleUpdateRowValue = (id, field, value) => {
+        setServicosMateriaisRows(servicosMateriaisRows.map(row => {
+          if (row.id === id) {
+            return { ...row, [field]: value };
+          }
+          return row;
+        }));
+      };
+      
+      // Evidências
+      const [photosBefore, setPhotosBefore] = useState([]);
+      const [photosAfter, setPhotosAfter] = useState([]);
+      const [durationDays, setDurationDays] = useState(1);
+      const [observacao, setObservacao] = useState('');
+      const [signature, setSignature] = useState(false);
+      
+      // Sincronização
+      const [isSyncing, setIsSyncing] = useState(false);
+      const [syncHistory, setSyncHistory] = useState([]);
+      const [showComplianceModal, setShowComplianceModal] = useState(false);
+
+      // Auto-selecionar primeira praça ao simular GPS ativo
+      useEffect(() => {
+        if (gpsSimulated && !selectedPraca) {
+          setSelectedPraca(PRACAS_MOCK[0]); 
+          setSearchQuery(PRACAS_MOCK[0].nome);
+        }
+      }, [gpsSimulated]);
+
+      const handleItemStatus = (item, status) => {
+        setInspectionStatus(prev => ({
+          ...prev,
+          [item]: status === "" ? null : status
+        }));
+      };
+
+      // --- Gestão Dinâmica de Equipe ---
+      const toggleTeamMember = (membro) => {
+        const exists = selectedTeam.some(t => t.matricula === membro.matricula);
+        if (exists) {
+          setSelectedTeam(selectedTeam.filter(t => t.matricula !== membro.matricula));
+        } else {
+          setSelectedTeam([...selectedTeam, membro]);
+        }
+      };
+
+      const removeTeamMember = (matricula) => {
+        setSelectedTeam(selectedTeam.filter(t => t.matricula !== matricula));
+      };
+
+      const handleAddCustomMember = (e) => {
+        e.preventDefault();
+        if (!customMemberName || !customMemberMatricula) return;
+        
+        const newMember = {
+          matricula: customMemberMatricula,
+          nome: customMemberName,
+          funcao: 'Gari / Operador Adicional (Manual)',
+          isCustom: true
+        };
+
+        if (selectedTeam.some(t => t.matricula === customMemberMatricula)) {
+          alert("Esta matrícula já está adicionada à equipe.");
+          return;
+        }
+
+        setSelectedTeam([...selectedTeam, newMember]);
+        setCustomMemberName('');
+        setCustomMemberMatricula('');
+        setShowCustomMemberForm(false);
+      };
+
+      const addMockPhoto = (type) => {
+        const randomId = Math.floor(Math.random() * 1000);
+        const mockImage = type === 'antes' 
+          ? `https://images.unsplash.com/photo-1597047084897-51e81819a499?auto=format&fit=crop&w=300&q=80`
+          : `https://images.unsplash.com/photo-1519331379826-f10be5486c6f?auto=format&fit=crop&w=300&q=80`;
+        
+        if (type === 'antes') {
+          setPhotosBefore([...photosBefore, { id: randomId, url: mockImage }]);
+        } else {
+          setPhotosAfter([...photosAfter, { id: randomId, url: mockImage }]);
+        }
+      };
+
+      const handleSubmitService = () => {
+        setIsSyncing(true);
+        setTimeout(() => {
+          const payload = {
+            id: 'OS-' + Math.floor(100000 + Math.random() * 900000),
+            dataHora: new Date().toLocaleString('pt-BR'),
+            vistoriador: {
+              nome: vistoriadorNome || 'Não Informado',
+              matricula: vistoriadorMatricula || 'Não Informada',
+              tipoEntrada: tipoEntrada,
+              dataVistoria: dataVistoria,
+              dataProgramacao: semDataProgramacao ? "Sem data de programação" : dataProgramacao,
+              intervencao: intervencao || 'Não Selecionada'
+            },
+            responsavelExecucao: 'Carlos Alberto (Encarregado / Digitador)',
+            praca: selectedPraca,
+            equipe: selectedTeam,
+            frota: selectedFrota,
+            vistoriasChecklist: inspectionStatus,
+            servicosEMateriais: servicosMateriaisRows,
+            duracaoDias: durationDays,
+            fotosAntes: photosBefore.length,
+            fotosDepois: photosAfter.length,
+            observacao: observacao,
+            status: 'Sincronizado'
+          };
+
+          setSyncHistory([payload, ...syncHistory]);
+          setIsSyncing(false);
+          setStep(5);
+        }, 1500);
+      };
+
+      const resetForm = () => {
+        setVistoriadorNome('');
+        setVistoriadorMatricula('');
+        setTipoEntrada('PROGRAMACAO');
+        setDataVistoria(new Date().toISOString().split('T')[0]);
+        setDataProgramacao(new Date().toISOString().split('T')[0]);
+        setSemDataProgramacao(false);
+        setIntervencao('');
+        setSelectedPraca(PRACAS_MOCK[0]);
+        setSearchQuery(PRACAS_MOCK[0].nome);
+        setSelectedTeam([]);
+        setSelectedFrota([]);
+        setInspectionStatus({});
+        setServicosMateriaisRows([
+          { id: Date.now(), servico: "", qtdServico: 1, item: "", qtdItem: 1, material: "", qtdMaterial: 1 }
+        ]);
+        setPhotosBefore([]);
+        setPhotosAfter([]);
+        setDurationDays(1);
+        setObservacao('');
+        setSignature(false);
+        setSubFlow('vistoria');
+        setStep(1);
+      };
+
+      // Filtro de sugestões para o autocomplete
+      const filteredPracas = PRACAS_MOCK.filter(p => 
+        p.nome.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        p.bairro.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+
+      return (
+        <div className="min-h-screen bg-slate-900 text-slate-100 font-sans flex flex-col">
+          
+          {/* --- HEADER PRINCIPAL --- */}
+          <header className="bg-slate-950 border-b border-slate-800 px-6 py-4 flex flex-wrap justify-between items-center gap-4 shadow-lg shrink-0">
+            <div className="flex items-center space-x-3">
+              <div className="bg-orange-600 text-white font-extrabold px-3 py-1.5 rounded text-lg tracking-wider">
+                COMLURB
+              </div>
+              <div>
+                <h1 className="text-xl font-bold tracking-tight">App Praça Digital</h1>
+                <p className="text-xs text-slate-400">Setor de Parques, Praças e Parcões • Rio de Janeiro</p>
+              </div>
+            </div>
+
+            {/* SELETOR DE WORKSPACE PRINCIPAL (Super Visível) */}
+            <div className="bg-slate-900 p-1.5 rounded-2xl border border-slate-800 flex space-x-2">
+              <button
+                onClick={() => { setWorkspaceTab('split'); setSubFlow('vistoria'); setStep(1); }}
+                className={`px-5 py-3 rounded-xl text-xs font-black flex items-center gap-2 transition-all ${
+                  workspaceTab === 'split' 
+                    ? 'bg-orange-600 text-white shadow-lg' 
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                }`}
+              >
+                📱 1. Versão Celular + Painel Técnico (Original)
+              </button>
+              <button
+                onClick={() => { setWorkspaceTab('desktop'); setSubFlow('vistoria'); setStep(1); }}
+                className={`px-5 py-3 rounded-xl text-xs font-black flex items-center gap-2 transition-all ${
+                  workspaceTab === 'desktop' 
+                    ? 'bg-orange-600 text-white shadow-lg' 
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                }`}
+              >
+                💻 2. Versão Tela Cheia de Computador (Mesa)
+              </button>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={() => setShowComplianceModal(true)} 
+                className="bg-slate-800 hover:bg-slate-700 text-xs font-semibold px-4 py-2 rounded-lg border border-slate-700 text-orange-400 transition-all flex items-center gap-2"
+              >
+                📋 Requisitos do TR
+              </button>
+              <div className="flex items-center space-x-2 text-xs bg-emerald-950 border border-emerald-800 px-3 py-1.5 rounded-full text-emerald-400">
+                <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                <span>Sistema Ativo</span>
+              </div>
+            </div>
+          </header>
+
+          {/* --- NOTIFICAÇÃO DO MODO ATIVO --- */}
+          <div className="bg-slate-950 px-6 py-2 text-xs border-b border-slate-850 flex items-center justify-between">
+            <span className="text-slate-400 flex items-center gap-2">
+              <span>🖥️ Workspace:</span> 
+              <strong className="text-orange-400">{workspaceTab === 'split' ? "Celular + Servidor" : "Tela Cheia Computador"}</strong>
+              <span className="text-slate-600">|</span>
+              <span>Processo Atual:</span>
+              <strong className="text-sky-400 uppercase tracking-wider">{subFlow === 'vistoria' ? "🕵️ 1. Fase Vistoria Prévia" : "👷 2. Fase Execução da OS"}</strong>
+            </span>
+            <span className="bg-slate-900 px-2 py-0.5 rounded text-[10px] text-orange-400 font-bold uppercase tracking-wide">
+              PROCESSO DIVIDIDO
+            </span>
+          </div>
+
+          {/* ======================================================== */}
+          {/* === OPÇÃO 1: SPLIT SCREEN (CELULAR + PAINEL DE DADOS) === */}
+          {/* ======================================================== */}
+          {workspaceTab === 'split' && (
+            <main className="flex-1 grid grid-cols-1 xl:grid-cols-12 gap-6 p-6 overflow-hidden">
+              
+              {/* LADO ESQUERDO: SMARTPHONE EMULATOR */}
+              <section className="xl:col-span-5 flex flex-col items-center justify-start animate-fadeIn">
+                <div className="w-full max-w-[420px] h-[740px] bg-slate-950 rounded-[40px] border-[8px] border-slate-800 shadow-2xl overflow-hidden flex flex-col relative">
+                  
+                  {/* Notch do Celular */}
+                  <div className="absolute top-0 inset-x-0 h-6 bg-slate-800 flex justify-center items-center z-50">
+                    <div className="w-24 h-4 bg-slate-950 rounded-b-xl"></div>
+                  </div>
+
+                  {/* Barra de Status */}
+                  <div className="h-10 bg-slate-900 border-b border-slate-800 flex justify-between items-center px-6 pt-5 text-xs text-slate-400 shrink-0">
+                    <span>10:12 AM</span>
+                    <div className="flex items-center space-x-1.5">
+                      <span>📶 4G</span>
+                      <span>🔋 85%</span>
+                    </div>
+                  </div>
+
+                  {/* App Header */}
+                  <div className="bg-orange-600 text-white px-4 py-3 shrink-0 flex justify-between items-center shadow-md">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xl">{subFlow === 'vistoria' ? '🕵️' : '👷'}</span>
+                      <div>
+                        <h3 className="font-extrabold text-sm tracking-wide">COMLURB - PRAÇAS</h3>
+                        <p className="text-[10px] text-orange-100 font-medium">
+                          {subFlow === 'vistoria' ? 'Fase 1: Vistoria Diagnóstica' : 'Fase 2: Execução de Reparo'}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] bg-black/20 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider text-orange-100">
+                      {subFlow}
+                    </span>
+                  </div>
+
+                  {/* Progress Wizard (Se não estiver na tela de sucesso) */}
+                  {step <= 4 && (
+                    <div className="bg-slate-900 border-b border-slate-800 px-4 py-2 shrink-0 flex justify-between text-[11px] font-bold text-slate-400">
+                      {subFlow === 'vistoria' ? (
+                        <>
+                          <span className={step === 1 ? "text-orange-400" : "text-emerald-500"}>1. Quem e Onde</span>
+                          <span>➔</span>
+                          <span className={step === 2 ? "text-orange-400" : "text-slate-500"}>2. Checklist Vistoria</span>
+                          <span>➔</span>
+                          <span className="text-slate-600">3. Abrir O.S. (Próxima Fase)</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className={step === 1 ? "text-sky-400" : "text-emerald-500"}>1. Equipe & Frota</span>
+                          <span>➔</span>
+                          <span className={step === 2 ? "text-sky-400" : "text-emerald-500"}>2. Serviços e Materiais</span>
+                          <span>➔</span>
+                          <span className={step === 3 ? "text-sky-400" : ""}>3. Evidências e Fechar</span>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {/* CORPO DO FORMULÁRIO MOBILE */}
+                  <div className="flex-1 overflow-y-auto p-4 bg-slate-900 scrollbar-thin">
+
+                    {/* ================================== */}
+                    {/* FLOW 1: VISTORIA PREVIA (CELULAR) */}
+                    {/* ================================== */}
+                    {subFlow === 'vistoria' && (
+                      <div className="space-y-4">
+                        
+                        {/* Etapa 1: Quem vistoria + Onde */}
+                        {step === 1 && (
+                          <div className="space-y-4 animate-fadeIn">
+                            
+                            {/* Identificação de quem vistoriou */}
+                            <div className="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-3 shadow-inner">
+                              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wide">👮 1. Vistoriador Responsável</label>
+                              <div className="space-y-2">
+                                <input 
+                                  type="text"
+                                  value={vistoriadorNome}
+                                  onChange={(e) => setVistoriadorNome(e.target.value)}
+                                  placeholder="Nome Completo do Fiscal"
+                                  className="w-full bg-slate-900 border border-slate-750 rounded-lg p-2 text-xs focus:ring-1 focus:ring-orange-500 text-slate-200"
+                                />
+                                <input 
+                                  type="text"
+                                  value={vistoriadorMatricula}
+                                  onChange={(e) => setVistoriadorMatricula(e.target.value)}
+                                  placeholder="Matrícula Comlurb (Ex: 124.532-1)"
+                                  className="w-full bg-slate-900 border border-slate-750 rounded-lg p-2 text-xs focus:ring-1 focus:ring-orange-500 text-slate-200"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Campo Tipo de Entrada */}
+                            <div className="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-3 shadow-inner">
+                              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wide">📋 Tipo de entrada</label>
+                              <select 
+                                value={tipoEntrada}
+                                onChange={(e) => setTipoEntrada(e.target.value)}
+                                className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-100 font-bold focus:ring-1 focus:ring-orange-500"
+                              >
+                                <option value="CAS - 1746">CAS - 1746</option>
+                                <option value="CAS - OUVIDORIA">CAS - OUVIDORIA</option>
+                                <option value="PROCESSO.RIO">PROCESSO.RIO</option>
+                                <option value="DIRETORIA">DIRETORIA</option>
+                                <option value="PROGRAMACAO">PROGRAMACAO</option>
+                                <option value="demanda parlamentar">demanda parlamentar</option>
+                              </select>
+                            </div>
+
+                            {/* Campo Seleção de Data */}
+                            <div className="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-3 shadow-inner">
+                              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wide">📅 Data da Vistoria</label>
+                              <input 
+                                type="date"
+                                value={dataVistoria}
+                                onChange={(e) => setDataVistoria(e.target.value)}
+                                className="w-full bg-black border border-slate-800 rounded-lg p-2.5 text-xs text-slate-100 font-bold focus:ring-1 focus:ring-orange-500"
+                              />
+                            </div>
+
+                            {/* Onde ocorre - BUSCA ATIVA E DADOS DE CADASTRO OTIMIZADOS */}
+                            <div className="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-3 shadow-inner relative" ref={suggestionsRef}>
+                              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wide">📍 2. Localização por busca ativa</label>
+                              
+                              <div className="flex items-center justify-between bg-slate-900 p-2.5 rounded-lg border border-slate-800">
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-xl">📍</span>
+                                  <div>
+                                    <p className="text-xs font-bold text-slate-200">Localização Automática</p>
+                                    <p className="text-[10px] text-emerald-400 font-semibold">Sugerindo praça mais próxima</p>
+                                  </div>
+                                </div>
+                                <input type="checkbox" checked={gpsSimulated} onChange={(e) => setGpsSimulated(e.target.checked)} className="w-4 h-4 text-orange-600 bg-slate-700 border-slate-600 rounded focus:ring-orange-500" />
+                              </div>
+
+                              {/* Input de Busca Ativa (Autocomplete) */}
+                              <div className="relative">
+                                <input 
+                                  type="text"
+                                  value={searchQuery}
+                                  onChange={(e) => {
+                                    setSearchQuery(e.target.value);
+                                    setShowSuggestions(true);
+                                  }}
+                                  onFocus={() => setShowSuggestions(true)}
+                                  placeholder="🔍 Digite para buscar a praça..."
+                                  className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-100 font-bold focus:ring-1 focus:ring-orange-500"
+                                />
+
+                                {/* Lista de Sugestões Suspensa */}
+                                {showSuggestions && searchQuery.trim() !== "" && (
+                                  <ul className="absolute z-50 w-full bg-slate-950 border border-slate-800 rounded-lg mt-1 max-h-40 overflow-y-auto scrollbar-thin text-[11px] divide-y divide-slate-850 shadow-2xl">
+                                    {filteredPracas.map((praca) => (
+                                      <li 
+                                        key={praca.cod}
+                                        onClick={() => {
+                                          setSelectedPraca(praca);
+                                          setSearchQuery(praca.nome);
+                                          setShowSuggestions(false);
+                                        }}
+                                        className="p-2 hover:bg-slate-900 cursor-pointer text-slate-200 transition-colors"
+                                      >
+                                        {praca.nome} - <span className="text-slate-400 font-medium">{praca.bairro}</span>
+                                      </li>
+                                    ))}
+                                    {filteredPracas.length === 0 && (
+                                      <li className="p-2 text-slate-500 italic">Nenhuma praça encontrada</li>
+                                    )}
+                                  </ul>
+                                )}
+                              </div>
+
+                              {/* Dados do cadastro retornados de forma exata e linha por linha */}
+                              {selectedPraca && (
+                                <div className="bg-orange-600/10 border border-orange-500/20 p-3 rounded-lg text-xs space-y-1.5 animate-fadeIn">
+                                  <p className="font-bold text-orange-400 border-b border-orange-500/20 pb-1">Dados do cadastro:</p>
+                                  <p className="text-slate-300"><span className="font-semibold text-slate-400">Código:</span> {selectedPraca.cod}</p>
+                                  <p className="text-slate-300"><span className="font-semibold text-slate-400">Endereço:</span> {selectedPraca.endereco}</p>
+                                  <p className="text-slate-300"><span className="font-semibold text-slate-400">Bairro:</span> {selectedPraca.bairro}</p>
+                                  <p className="text-slate-300"><span className="font-semibold text-slate-400">AP:</span> {selectedPraca.ap}</p>
+                                  <p className="text-slate-300"><span className="font-semibold text-slate-400">UGU:</span> {selectedPraca.ugu}</p>
+                                  <p className="text-slate-300"><span className="font-semibold text-slate-400">Tipo:</span> {selectedPraca.tipo}</p>
+                                </div>
+                              )}
+
+                              {/* Data de Programação */}
+                              {selectedPraca && (
+                                <div className="bg-slate-900/80 border border-slate-800 p-3 rounded-lg text-xs space-y-2.5 mt-2 animate-fadeIn">
+                                  <p className="font-bold text-sky-400">📅 Programação do serviço:</p>
+                                  
+                                  <div className="flex items-center space-x-2">
+                                    <input 
+                                      type="checkbox" 
+                                      id="semDataProgMobile"
+                                      checked={semDataProgramacao} 
+                                      onChange={(e) => setSemDataProgramacao(e.target.checked)}
+                                      className="w-4 h-4 text-orange-600 bg-slate-700 border-slate-600 rounded focus:ring-orange-500"
+                                    />
+                                    <label htmlFor="semDataProgMobile" className="text-xs text-slate-300 select-none cursor-pointer">
+                                      Sem data de programação
+                                    </label>
+                                  </div>
+
+                                  <div className="space-y-1">
+                                    <label className="block text-[10px] text-slate-400">Data Agendada:</label>
+                                    <input 
+                                      type="date"
+                                      value={dataProgramacao}
+                                      disabled={semDataProgramacao}
+                                      onChange={(e) => setDataProgramacao(e.target.value)}
+                                      className={`w-full bg-black border border-slate-700 rounded-lg p-2 text-xs text-slate-100 font-bold focus:ring-1 focus:ring-orange-500 ${semDataProgramacao ? 'opacity-40 cursor-not-allowed' : ''}`}
+                                    />
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* NOVO: Campo Intervenções (Mobile) adicionado abaixo da programação de serviços */}
+                              {selectedPraca && (
+                                <div className="bg-slate-900/80 border border-slate-800 p-3 rounded-lg text-xs space-y-2.5 mt-2 animate-fadeIn">
+                                  <p className="font-bold text-sky-400">🛠️ Intervenções:</p>
+                                  <select 
+                                    value={intervencao}
+                                    onChange={(e) => setIntervencao(e.target.value)}
+                                    className="w-full bg-black border border-slate-700 rounded-lg p-2.5 text-xs text-slate-100 font-bold focus:ring-1 focus:ring-orange-500"
+                                  >
+                                    <option value="" className="text-slate-500">Selecionar intervenção...</option>
+                                    <option value="CAPINA/ROÇADA">CAPINA/ROÇADA</option>
+                                    <option value="CONSERVAÇÃO DE JARDINS">CONSERVAÇÃO DE JARDINS</option>
+                                    <option value="DESOBSTRUÇÃO DE CRAL/RAL">DESOBSTRUÇÃO DE CRAL/RAL</option>
+                                    <option value="HIGIENIZAÇÃO DE PARCÃO">HIGIENIZAÇÃO DE PARCÃO</option>
+                                    <option value="LIMPEZA/VARRIÇÃO">LIMPEZA/VARRIÇÃO</option>
+                                    <option value="MANUTENÇÃO DE BRINQUEDOS">MANUTENÇÃO DE BRINQUEDOS</option>
+                                    <option value="MANUTENÇÃO DE MOBILIÁRIO">MANUTENÇÃO DE MOBILIÁRIO</option>
+                                    <option value="MANUTENÇÃO DE QUADRA">MANUTENÇÃO DE QUADRA</option>
+                                    <option value="MANUTENÇÃO DE CERCAS/PORTÕES">MANUTENÇÃO DE CERCAS/PORTÕES</option>
+                                    <option value="PODA DE ÁRVORE">PODA DE ÁRVORE</option>
+                                    <option value="REMOÇÃO DE RESÍDUOS">REMOÇÃO DE RESÍDUOS</option>
+                                    <option value="OUTROS">OUTROS</option>
+                                  </select>
+                                </div>
+                              )}
+                            </div>
+
+                          </div>
+                        )}
+
+                        {/* Etapa 2: Checklist Vistoria */}
+                        {step === 2 && (
+                          <div className="space-y-4 animate-fadeIn">
+                            <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 shadow-inner">
+                              <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wide mb-1">🔍 Diagnóstico de Danos (Anexo II)</h4>
+                              <p className="text-[10px] text-slate-400 mb-3">Selecione o estado ao lado de cada palavra:</p>
+
+                              <div className="space-y-2 max-h-[460px] overflow-y-auto pr-1">
+                                {ITENS_PRACA_MOCK.map((categoria) => (
+                                  <div key={categoria.id} className="border-t border-slate-800 pt-2.5 first:border-0 first:pt-0">
+                                    <p className="text-[10px] font-bold text-orange-400 mb-1.5 uppercase">{categoria.categoria}</p>
+                                    <div className="space-y-1.5">
+                                      {categoria.itens.map((item) => {
+                                        const currentStatus = inspectionStatus[item];
+                                        return (
+                                          <div key={item} className="bg-slate-900 py-1.5 px-2.5 rounded-lg border border-slate-800/60 flex items-center justify-between gap-2">
+                                            <span className="text-xs text-slate-200 font-medium truncate max-w-[55%]">{item}</span>
+                                            <select
+                                              value={currentStatus || ''}
+                                              onChange={(e) => handleItemStatus(item, e.target.value)}
+                                              className="bg-black border border-slate-800 text-slate-200 py-1 px-1.5 rounded text-[11px] font-bold focus:ring-1 focus:ring-orange-500 max-w-[45%] h-8"
+                                            >
+                                              <option value="" className="bg-black text-slate-400">Selecionar...</option>
+                                              <option value="Bom estado" className="bg-black text-emerald-400">🟢 Bom estado</option>
+                                              <option value="Precisa de reparo" className="bg-black text-red-400">⚠️ Precisa de reparo</option>
+                                              <option value="Trocar" className="bg-black text-amber-400">🔄 Trocar</option>
+                                              <option value="Retirar" className="bg-black text-fuchsia-400">🚫 Retirar</option>
+                                              <option value="Não se aplica" className="bg-black text-slate-400">⚪ Não se aplica</option>
+                                            </select>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Etapa 3: Concluir Vistoria e abrir a OS */}
+                        {step === 3 && (
+                          <div className="py-6 text-center space-y-4 animate-scaleUp">
+                            <div className="w-16 h-16 bg-sky-500/20 text-sky-400 border border-sky-500/30 rounded-full flex items-center justify-center text-3xl mx-auto">📋</div>
+                            <div>
+                              <h3 className="text-base font-bold">Vistoria Prévia Concluída!</h3>
+                              <p className="text-xs text-slate-400 mt-2 px-6">
+                                O relatório identificou itens que necessitam de intervenção. Agora precisamos abrir a Ordem de Serviço (O.S.) para que a equipe execute os reparos!
+                              </p>
+                            </div>
+
+                            <div className="bg-slate-950 p-3 rounded-lg text-left text-xs max-w-xs mx-auto border border-slate-800 space-y-1">
+                              <p className="text-slate-400"><strong className="text-slate-300">Vistoriado por:</strong> {vistoriadorNome || 'Não Informado'} ({vistoriadorMatricula || 'S/M'})</p>
+                              <p className="text-slate-400"><strong className="text-slate-300">Tipo de Entrada:</strong> {tipoEntrada}</p>
+                              <p className="text-slate-400"><strong className="text-slate-300">Data da Vistoria:</strong> {dataVistoria}</p>
+                              <p className="text-slate-400"><strong className="text-slate-300">Programação:</strong> {semDataProgramacao ? "Sem data de programação" : dataProgramacao}</p>
+                              <p className="text-slate-400"><strong className="text-slate-300">Intervenção:</strong> {intervencao || 'Não Selecionada'}</p>
+                              <p className="text-slate-400"><strong className="text-slate-300">Praça:</strong> {selectedPraca?.nome}</p>
+                              <p className="text-slate-400"><strong className="text-slate-300">Ações registradas:</strong> {Object.values(inspectionStatus).filter(v => v && v !== 'Bom estado' && v !== 'Não se aplica').length} itens pendentes de ação.</p>
+                            </div>
+
+                            <button 
+                              onClick={() => { setSubFlow('os'); setStep(1); }}
+                              className="w-full max-w-xs bg-sky-600 hover:bg-sky-500 text-white font-extrabold text-xs py-3 px-6 rounded-xl shadow-lg uppercase tracking-wider animate-bounce"
+                            >
+                              👷 Abrir Ordem de Serviço (O.S.)
+                            </button>
+                          </div>
+                        )}
+
+                      </div>
+                    )}
+
+                    {/* ================================== */}
+                    {/* FLOW 2: ORDEM DE SERVIÇO (CELULAR) */}
+                    {/* ================================== */}
+                    {subFlow === 'os' && (
+                      <div className="space-y-4">
+                        
+                        {/* Etapa 1: Equipe e Frota */}
+                        {step === 1 && (
+                          <div className="space-y-4 animate-fadeIn">
+                            
+                            {/* Equipe do Ergon */}
+                            <div className="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-3 shadow-inner">
+                              <div className="flex justify-between items-center">
+                                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wide">👥 1. Equipe do Dia (Ergon)</label>
+                                <button 
+                                  onClick={() => setShowCustomMemberForm(!showCustomMemberForm)}
+                                  className="text-[11px] bg-slate-800 text-orange-400 px-2 py-1 rounded border border-slate-750 font-bold"
+                                >
+                                  {showCustomMemberForm ? "Fechar ✕" : "➕ Novo Gari"}
+                                </button>
+                              </div>
+
+                              {/* Formulário de Adição Manual de Funcionário */}
+                              {showCustomMemberForm && (
+                                <form onSubmit={handleAddCustomMember} className="bg-slate-900 p-3 rounded-lg border border-orange-500/30 space-y-2 animate-fadeIn">
+                                  <p className="text-[10px] text-orange-400 font-bold">Adicionar Funcionário fora da Lista:</p>
+                                  <input 
+                                    type="text" 
+                                    placeholder="Nome Completo" 
+                                    value={customMemberName} 
+                                    onChange={(e) => setCustomMemberName(e.target.value)}
+                                    className="w-full bg-slate-950 border border-slate-750 rounded p-1.5 text-xs text-slate-200"
+                                    required
+                                  />
+                                  <input 
+                                    type="text" 
+                                    placeholder="Matrícula" 
+                                    value={customMemberMatricula} 
+                                    onChange={(e) => setCustomMemberMatricula(e.target.value)}
+                                    className="w-full bg-slate-950 border border-slate-750 rounded p-1.5 text-xs text-slate-200"
+                                    required
+                                  />
+                                  <button type="submit" className="w-full bg-orange-600 text-white text-xs font-bold py-1.5 rounded">
+                                    Adicionar Gari à Equipe ➕
+                                  </button>
+                                </form>
+                              )}
+
+                              {/* Seleção rápida do Ergon */}
+                              <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                                {EQUIPE_ERGON_MOCK.map((membro) => {
+                                  const isSelected = selectedTeam.some(t => t.matricula === membro.matricula);
+                                  return (
+                                    <div key={membro.matricula} className="flex gap-1.5">
+                                      <button 
+                                        onClick={() => toggleTeamMember(membro)} 
+                                        className={`flex-1 text-left p-2 rounded-lg text-xs flex items-center justify-between border ${
+                                          isSelected 
+                                            ? 'bg-sky-500/10 border-sky-500 text-sky-300 font-bold' 
+                                            : 'bg-slate-900 border-slate-800 text-slate-300'
+                                        }`}
+                                      >
+                                        <div>
+                                          <p>{membro.nome}</p>
+                                          <p className="text-[9px] text-slate-400">Matr: {membro.matricula}</p>
+                                        </div>
+                                        <span>{isSelected ? '✅' : '➕'}</span>
+                                      </button>
+                                      
+                                      {/* Lixeirinha para Excluir se participou */}
+                                      {isSelected && (
+                                        <button 
+                                          onClick={() => removeTeamMember(membro.matricula)}
+                                          className="bg-red-900/40 hover:bg-red-900 text-red-400 p-2 rounded-lg border border-red-500/30 flex items-center justify-center w-10 shrink-0"
+                                          title="Excluir da Equipe"
+                                        >
+                                          🗑️
+                                        </button>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+
+                                {/* Mostrar os garis adicionais inseridos manualmente */}
+                                {selectedTeam.filter(t => t.isCustom).map((custom) => (
+                                  <div key={custom.matricula} className="flex gap-1.5">
+                                    <div className="flex-1 text-left p-2 rounded-lg text-xs flex items-center justify-between border bg-orange-500/10 border-orange-500 text-orange-300 font-bold">
+                                      <div>
+                                        <p>{custom.nome} <span className="bg-orange-600 text-white text-[8px] px-1 rounded uppercase font-normal">manual</span></p>
+                                        <p className="text-[9px] text-slate-400">Matr: {custom.matricula}</p>
+                                      </div>
+                                      <span>✅</span>
+                                    </div>
+                                    <button 
+                                      onClick={() => removeTeamMember(custom.matricula)}
+                                      className="bg-red-900/40 hover:bg-red-900 text-red-400 p-2 rounded-lg border border-red-500/30 flex items-center justify-center w-10 shrink-0"
+                                    >
+                                      🗑️
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Veículos e Fro */}
+                            <div className="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-3 shadow-inner">
+                              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wide">🚚 2. VEÍCULOS E FROTA</label>
+                              
+                              <select 
+                                className="w-full bg-slate-900 border border-slate-750 rounded-lg p-2.5 text-xs text-slate-100 font-bold focus:ring-1 focus:ring-orange-500"
+                                value={selectedFrota[0]?.prefixo || ''}
+                                onChange={(e) => {
+                                  const selected = FROTA_MOCK.find(f => f.prefixo === e.target.value);
+                                  setSelectedFrota(selected ? [selected] : []);
+                                }}
+                              >
+                                <option value="">Selecione o prefixo do veículo...</option>
+                                {FROTA_MOCK.map((veiculo) => (
+                                  <option key={veiculo.prefixo} value={veiculo.prefixo}>
+                                    {veiculo.prefixo} - {veiculo.modelo}
+                                  </option>
+                                ))}
+                              </select>
+
+                              {selectedFrota.length > 0 && (
+                                <div className="bg-sky-500/10 border-sky-500/20 p-2.5 rounded-lg text-xs">
+                                  <p className="font-bold text-sky-400">Veículo Selecionado: {selectedFrota[0].prefixo} - {selectedFrota[0].modelo}</p>
+                                </div>
+                              )}
+                            </div>
+
+                          </div>
+                        )}
+
+                        {/* Etapa 2: Serviços e Materiais Dinâmicos */}
+                        {step === 2 && (
+                          <div className="space-y-4 animate-fadeIn">
+                            <div className="bg-slate-950 border border-slate-800 rounded-xl p-3.5 shadow-inner">
+                              <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wide mb-1">🛠️ Serviços e Materiais</h4>
+                              <p className="text-[10px] text-slate-400 mb-3">Preencha as linhas dinâmicas de serviços e insumos gastas nesta OS:</p>
+
+                              <div className="space-y-4 max-h-[440px] overflow-y-auto pr-1">
+                                {servicosMateriaisRows.map((row, index) => (
+                                  <div key={row.id} className="bg-slate-900 p-3 rounded-xl border border-slate-800 space-y-3 relative">
+                                    <div className="flex justify-between items-center border-b border-slate-800 pb-1.5">
+                                      <span className="text-[10px] font-bold text-orange-400 uppercase">Linha {index + 1}</span>
+                                      <button 
+                                        onClick={() => handleRemoveRow(row.id)}
+                                        className="text-red-400 hover:text-red-300 text-xs flex items-center gap-1 bg-red-950/20 px-2 py-1 rounded border border-red-900/30"
+                                      >
+                                        🗑️ Remover
+                                      </button>
+                                    </div>
+
+                                    {/* 1. Serviço */}
+                                    <div className="grid grid-cols-3 gap-2">
+                                      <div className="col-span-2">
+                                        <label className="block text-[9px] text-slate-400">Serviço:</label>
+                                        <select
+                                          value={row.servico}
+                                          onChange={(e) => handleUpdateRowValue(row.id, 'servico', e.target.value)}
+                                          className="w-full bg-black border border-slate-850 p-1.5 rounded text-[11px] font-bold text-slate-200"
+                                        >
+                                          <option value="">Selecione...</option>
+                                          {SERVICOS_LIST.map(s => <option key={s} value={s}>{s}</option>)}
+                                        </select>
+                                      </div>
+                                      <div>
+                                        <label className="block text-[9px] text-slate-400">Qtd:</label>
+                                        <input 
+                                          type="number"
+                                          min="1"
+                                          value={row.qtdServico}
+                                          onChange={(e) => handleUpdateRowValue(row.id, 'qtdServico', parseInt(e.target.value, 10) || 1)}
+                                          className="w-full bg-black border border-slate-850 p-1.5 rounded text-[11px] font-bold text-center text-slate-100"
+                                        />
+                                      </div>
+                                    </div>
+
+                                    {/* 2. Item */}
+                                    <div className="grid grid-cols-3 gap-2">
+                                      <div className="col-span-2">
+                                        <label className="block text-[9px] text-slate-400">Item:</label>
+                                        <select
+                                          value={row.item}
+                                          onChange={(e) => handleUpdateRowValue(row.id, 'item', e.target.value)}
+                                          className="w-full bg-black border border-slate-850 p-1.5 rounded text-[11px] font-bold text-slate-200"
+                                        >
+                                          <option value="">Selecione...</option>
+                                          {ITENS_LIST.map(item => <option key={item} value={item}>{item}</option>)}
+                                        </select>
+                                      </div>
+                                      <div>
+                                        <label className="block text-[9px] text-slate-400">Qtd:</label>
+                                        <input 
+                                          type="number"
+                                          min="1"
+                                          value={row.qtdItem}
+                                          onChange={(e) => handleUpdateRowValue(row.id, 'qtdItem', parseInt(e.target.value, 10) || 1)}
+                                          className="w-full bg-black border border-slate-850 p-1.5 rounded text-[11px] font-bold text-center text-slate-100"
+                                        />
+                                      </div>
+                                    </div>
+
+                                    {/* 3. Material */}
+                                    <div className="grid grid-cols-3 gap-2">
+                                      <div className="col-span-2">
+                                        <label className="block text-[9px] text-slate-400">Material:</label>
+                                        <select
+                                          value={row.material}
+                                          onChange={(e) => handleUpdateRowValue(row.id, 'material', e.target.value)}
+                                          className="w-full bg-black border border-slate-850 p-1.5 rounded text-[11px] font-bold text-slate-200"
+                                        >
+                                          <option value="">Selecione...</option>
+                                          {MATERIAIS_LIST.map(mat => <option key={mat} value={mat}>{mat}</option>)}
+                                        </select>
+                                      </div>
+                                      <div>
+                                        <label className="block text-[9px] text-slate-400">Qtd:</label>
+                                        <input 
+                                          type="number"
+                                          min="1"
+                                          value={row.qtdMaterial}
+                                          onChange={(e) => handleUpdateRowValue(row.id, 'qtdMaterial', parseInt(e.target.value, 10) || 1)}
+                                          className="w-full bg-black border border-slate-850 p-1.5 rounded text-[11px] font-bold text-center text-slate-100"
+                                        />
+                                      </div>
+                                    </div>
+
+                                    {/* Botão de sinal de mais em baixo da linha para adicionar outra */}
+                                    <div className="flex justify-end pt-1">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleAddRow(index)}
+                                        className="bg-sky-600 hover:bg-sky-500 text-white font-extrabold text-xs px-3 py-1.5 rounded-lg flex items-center gap-1 shadow"
+                                      >
+                                        ➕ Incluir Linha
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Etapa 3: Evidências, Observações e Fechar OS */}
+                        {step === 3 && (
+                          <div className="space-y-4 animate-fadeIn">
+                            <div className="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-3 shadow-inner">
+                              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wide">📸 Provas Fotográficas antes/depois</label>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 flex flex-col items-center">
+                                  <p className="text-[10px] font-bold text-red-400 mb-1">ANTES</p>
+                                  <button onClick={() => addMockPhoto('antes')} className="w-full bg-slate-850 text-[10px] p-2 rounded border border-dashed border-red-500/30 text-slate-300 font-bold">📸 Tirar Antes</button>
+                                  <div className="flex flex-wrap gap-1 mt-2">
+                                    {photosBefore.map(p => <img key={p.id} src={p.url} className="w-8 h-8 object-cover rounded border border-slate-700" />)}
+                                  </div>
+                                </div>
+                                <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 flex flex-col items-center">
+                                  <p className="text-[10px] font-bold text-emerald-400 mb-1">DEPOIS</p>
+                                  <button onClick={() => addMockPhoto('depois')} className="w-full bg-slate-850 text-[10px] p-2 rounded border border-dashed border-emerald-500/30 text-slate-300 font-bold">📸 Tirar Depois</button>
+                                  <div className="flex flex-wrap gap-1 mt-2">
+                                    {photosAfter.map(p => <img key={p.id} src={p.url} className="w-8 h-8 object-cover rounded border border-slate-700" />)}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-2 shadow-inner">
+                              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wide">⏱️ Dias Trabalhados (Duração)</label>
+                              <div className="flex items-center justify-between bg-slate-900 p-2 rounded-lg border border-slate-800">
+                                <span className="text-xs text-slate-300">Dias da equipe na praça:</span>
+                                <div className="flex items-center space-x-3">
+                                  <button onClick={() => setDurationDays(Math.max(1, durationDays - 1))} className="w-8 h-8 bg-slate-800 rounded-full flex items-center justify-center font-bold">-</button>
+                                  <span className="text-sm font-bold text-orange-400">{durationDays}</span>
+                                  <button onClick={() => setDurationDays(durationDays + 1)} className="w-8 h-8 bg-slate-800 rounded-full flex items-center justify-center font-bold">+</button>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-2 shadow-inner">
+                              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wide">📝 Notas da Execução</label>
+                              <textarea value={observacao} onChange={(e) => setObservacao(e.target.value)} placeholder="Detalhes ou ocorrências em campo..." className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs focus:ring-1 focus:ring-orange-500 h-14 resize-none" />
+                            </div>
+
+                            <div className="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-2 shadow-inner">
+                              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wide">✍️ Assinatura com o Dedo</label>
+                              <div className="border border-slate-700 bg-slate-900 rounded-lg h-20 relative flex flex-col items-center justify-center">
+                                {signature ? (
+                                  <div className="text-center animate-fadeIn">
+                                    <p className="text-xs font-bold italic">Carlos Alberto Silva</p>
+                                    <p className="text-[9px] text-slate-500">Encarregado Assinou</p>
+                                  </div>
+                                ) : (
+                                  <button onClick={() => setSignature(true)} className="text-xs text-slate-400 hover:text-orange-400">👇 Clique para Assinar</button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* TELA FINAL DE SUCESSO DO APP */}
+                        {step === 5 && (
+                          <div className="py-8 text-center space-y-4 animate-scaleUp">
+                            <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full flex items-center justify-center text-3xl mx-auto">✓</div>
+                            <div>
+                              <h3 className="text-lg font-bold">Ordem de Serviço Enviada!</h3>
+                              <p className="text-xs text-emerald-400 mt-1">Sincronizado na nuvem da Comlurb</p>
+                            </div>
+                            <button onClick={resetForm} className="bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs py-2.5 px-6 rounded-lg uppercase">Fazer Novo Lançamento</button>
+                          </div>
+                        )}
+
+                      </div>
+                    )}
+
+                  </div>
+
+                  {/* NAVEGAÇÃO MOBILE */}
+                  {step <= 4 && (
+                    <div className="bg-slate-950 border-t border-slate-800 p-3 shrink-0 flex justify-between gap-3">
+                      {step > 1 ? (
+                        <button onClick={() => setStep(step - 1)} className="flex-1 bg-slate-900 hover:bg-slate-850 text-slate-300 font-bold py-2.5 rounded-xl border border-slate-800 text-xs">◀ Voltar</button>
+                      ) : <div className="flex-1"></div>}
+                      
+                      {/* Lógica dinâmica de avanço */}
+                      {subFlow === 'vistoria' ? (
+                        step < 2 ? (
+                          <button onClick={() => setStep(step + 1)} className="flex-1 bg-orange-600 hover:bg-orange-500 text-white font-bold py-2.5 rounded-xl text-xs">Avançar ▶</button>
+                        ) : (
+                          <button onClick={() => setStep(3)} className="flex-1 bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 rounded-xl text-xs">Fechar Diagnóstico</button>
+                        )
+                      ) : (
+                        step < 3 ? (
+                          <button onClick={() => setStep(step + 1)} className="flex-1 bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 rounded-xl text-xs">Avançar ▶</button>
+                        ) : (
+                          <button onClick={handleSubmitService} disabled={isSyncing} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl text-xs">
+                            {isSyncing ? 'Sincronizando...' : 'Finalizar e Enviar 📦'}
+                          </button>
+                        )
+                      )}
+                    </div>
+                  )}
+
+                  <div className="h-4 bg-slate-950 shrink-0 flex justify-center items-center pb-1">
+                    <div className="w-28 h-1 bg-slate-700 rounded-full"></div>
+                  </div>
+
+                </div>
+              </section>
+
+              {/* LADO DIREITO: DASHBOARD INTEGRADO DE DADOS */}
+              <section className="xl:col-span-7 flex flex-col gap-6 animate-fadeIn">
+                
+                {/* Status do Workflow */}
+                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 flex justify-between items-center shadow-lg">
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Etapa Atual do Funcionário</p>
+                    <div className="flex items-center gap-2">
+                      <span className={`w-3 h-3 rounded-full ${subFlow === 'vistoria' ? 'bg-orange-500 animate-pulse' : 'bg-emerald-500'}`}></span>
+                      <span className="text-sm font-black">{subFlow === 'vistoria' ? 'Fase 1: Vistoria Prévia' : 'Fase 2: Executando Manutenção'}</span>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => { setSubFlow('vistoria'); setStep(1); }}
+                      className={`text-xs px-3 py-1.5 rounded-lg border font-bold ${subFlow === 'vistoria' ? 'bg-orange-500/10 border-orange-500 text-orange-400' : 'bg-slate-900 border-slate-800 text-slate-400'}`}
+                    >
+                      Ver Vistoria
+                    </button>
+                    <button 
+                      onClick={() => { setSubFlow('os'); setStep(1); }}
+                      className={`text-xs px-3 py-1.5 rounded-lg border font-bold ${subFlow === 'os' ? 'bg-sky-500/10 border-sky-500 text-sky-400' : 'bg-slate-900 border-slate-800 text-slate-400'}`}
+                    >
+                      Ir para a O.S.
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 flex-1 flex flex-col min-h-[400px] shadow-lg">
+                  <div className="flex justify-between items-center mb-3">
+                    <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                      📂 Dados Estruturados Recebidos na Central (JSON)
+                    </h3>
+                    <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded font-mono">POST /api/v1/manutencao</span>
+                  </div>
+                  
+                  <div className="bg-slate-900 rounded-lg p-3.5 font-mono text-[11px] text-emerald-400 flex-1 overflow-auto max-h-[420px] border border-slate-800 scrollbar-thin">
+                    <pre className="whitespace-pre-wrap">
+{JSON.stringify({
+  fluxo: subFlow.toUpperCase(),
+  vistoriador_identificado: {
+    nome: vistoriadorNome || 'Não Preenchido',
+    matricula: vistoriadorMatricula || 'Não Preenchido',
+    tipo_entrada: tipoEntrada,
+    data_vistoria: dataVistoria,
+    data_programacao: semDataProgramacao ? "Sem data de programação" : dataProgramacao,
+    intervencao: intervencao || 'Não Selecionada'
+  },
+  timestamp_transmissao: new Date().toISOString(),
+  local_praca_vistoria: selectedPraca ? { id: selectedPraca.id, nome: selectedPraca.nome, bairro: selectedPraca.bairro, lat: selectedPraca.lat, lng: selectedPraca.lng } : null,
+  vistoria_fisica_anexo_ii: inspectionStatus,
+  ordem_servico_aberta: subFlow === 'os',
+  manutencao_equipe_ergon: selectedTeam.map(t => ({ nome: t.nome, matricula: t.matricula, cargo: t.funcao, manual: t.isCustom || false })),
+  frota_veiculos: selectedFrota.map(f => ({ placa: f.placa, modelo: f.modelo, prefixo: f.prefixo })),
+  servicos_e_materiais_aplicados: servicosMateriaisRows.map((r, i) => ({
+    linha: i + 1,
+    servico: r.servico || "Não preenchido",
+    quantidade_servico: r.qtdServico,
+    item: r.item || "Não preenchido",
+    quantidade_item: r.qtdItem,
+    material: r.material || "Não preenchido",
+    quantidade_material: r.qtdMaterial
+  })),
+  duracao_dias: durationDays,
+  comprovantes: { fotos_antes: photosBefore.length, fotos_depois: photosAfter.length },
+  assinatura_encarregado: signature
+}, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              </section>
+
+            </main>
+          )}
+
+          {/* ============================================== */}
+          {/* === OPÇÃO 2: TELA CHEIA (DIGITAÇÃO DE MESA) === */}
+          {/* ============================================== */}
+          {workspaceTab === 'desktop' && (
+            <main className="flex-1 p-6 space-y-6 overflow-y-auto animate-fadeIn scrollbar-thin">
+              
+              {/* Alerta Administrativo */}
+              <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 flex flex-wrap justify-between items-center gap-4 shadow-md">
+                <div className="flex items-center space-x-3">
+                  <span className="text-2xl">💻</span>
+                  <div>
+                    <h2 className="text-sm font-bold text-slate-200">Terminal de Digitação Rápida (Mesa da Gerência)</h2>
+                    <p className="text-xs text-slate-400">Preencha o diário de ocorrências em campo de forma robusta e confortável no monitor do computador.</p>
+                  </div>
+                </div>
+                
+                {/* Seletor interno de fases no computador */}
+                <div className="bg-slate-900 p-1 rounded-xl border border-slate-800 flex space-x-1">
+                  <button 
+                    onClick={() => { setSubFlow('vistoria'); setStep(1); }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${subFlow === 'vistoria' ? 'bg-orange-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                  >
+                    🕵️ Fase 1: Vistoria
+                  </button>
+                  <button 
+                    onClick={() => { setSubFlow('os'); setStep(1); }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${subFlow === 'os' ? 'bg-sky-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                  >
+                    👷 Fase 2: Execução (O.S.)
+                  </button>
+                </div>
+              </div>
+
+              {step <= 4 ? (
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                  
+                  {/* COLUNA ESQUERDA - LOCALIZAÇÃO, EQUIPE E FROTA */}
+                  <div className="lg:col-span-4 space-y-6">
+                    
+                    {/* Seção 1: Identificação do Local e Vistoriador */}
+                    <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-xl relative" ref={suggestionsRef}>
+                      <h3 className="text-xs font-bold text-slate-300 uppercase tracking-widest border-b border-slate-800 pb-2 flex items-center gap-2">
+                        <span>📍</span> IDENTIFICAÇÃO E LOCAL
+                      </h3>
+
+                      {/* Campos do Vistoriador (REMOVIDOS DE SUBFLOW === 'OS' CONFORME SOLICITADO) */}
+                      {subFlow === 'vistoria' && (
+                        <div className="space-y-2 bg-slate-900/50 p-3 rounded-lg border border-slate-800">
+                          <p className="text-[10px] font-bold text-orange-400 uppercase tracking-wider">Responsável pela Vistoria:</p>
+                          <input 
+                            type="text" 
+                            placeholder="Nome do Vistoriador" 
+                            value={vistoriadorNome} 
+                            onChange={(e) => setVistoriadorNome(e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-slate-100 font-bold mb-1"
+                          />
+                          <input 
+                            type="text" 
+                            placeholder="Matrícula do Vistoriador" 
+                            value={vistoriadorMatricula} 
+                            onChange={(e) => setVistoriadorMatricula(e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-slate-100 font-bold mb-2"
+                          />
+                          
+                          <p className="text-[10px] font-bold text-orange-400 uppercase tracking-wider">Tipo de entrada:</p>
+                          <select 
+                            value={tipoEntrada}
+                            onChange={(e) => setTipoEntrada(e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-slate-100 font-bold mb-2"
+                          >
+                            <option value="CAS - 1746">CAS - 1746</option>
+                            <option value="CAS - OUVIDORIA">CAS - OUVIDORIA</option>
+                            <option value="PROCESSO.RIO">PROCESSO.RIO</option>
+                            <option value="DIRETORIA">DIRETORIA</option>
+                            <option value="PROGRAMACAO">PROGRAMACAO</option>
+                            <option value="demanda parlamentar">demanda parlamentar</option>
+                          </select>
+
+                          {/* Campo Seleção de Data */}
+                          <p className="text-[10px] font-bold text-orange-400 uppercase tracking-wider">Data da Vistoria:</p>
+                          <input 
+                            type="date"
+                            value={dataVistoria}
+                            onChange={(e) => setDataVistoria(e.target.value)}
+                            className="w-full bg-black border border-slate-700 rounded p-2 text-xs text-slate-100 font-bold"
+                          />
+                        </div>
+                      )}
+
+                      {/* Busca Ativa com Autocomplete na Versão Desktop */}
+                      <div className="space-y-2 relative">
+                        <label className="block text-xs font-semibold text-slate-400">Buscar Praça ou Parque (Busca Ativa):</label>
+                        <input 
+                          type="text"
+                          value={searchQuery}
+                          onChange={(e) => {
+                            setSearchQuery(e.target.value);
+                            setShowSuggestions(true);
+                          }}
+                          onFocus={() => setShowSuggestions(true)}
+                          placeholder="🔍 Comece a digitar o nome da praça..."
+                          className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-xs text-slate-100 font-bold focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
+                        />
+
+                        {/* Lista de Sugestões Suspensa Desktop */}
+                        {showSuggestions && searchQuery.trim() !== "" && (
+                          <ul className="absolute z-50 w-full bg-slate-950 border border-slate-800 rounded-lg mt-1 max-h-48 overflow-y-auto scrollbar-thin text-xs divide-y divide-slate-850 shadow-2xl">
+                            {filteredPracas.map((praca) => (
+                              <li 
+                                key={praca.cod}
+                                onClick={() => {
+                                  setSelectedPraca(praca);
+                                  setSearchQuery(praca.nome);
+                                  setShowSuggestions(false);
+                                }}
+                                className="p-2.5 hover:bg-slate-900 cursor-pointer text-slate-200 transition-colors"
+                              >
+                                {praca.nome} - <span className="text-slate-400 font-medium">{praca.bairro}</span>
+                              </li>
+                            ))}
+                            {filteredPracas.length === 0 && (
+                              <li className="p-2.5 text-slate-500 italic">Nenhuma praça encontrada</li>
+                            )}
+                          </ul>
+                        )}
+                      </div>
+
+                      {/* Dados do cadastro retornados de forma exata e linha por linha */}
+                      {selectedPraca && (
+                        <div className="bg-orange-600/10 border border-orange-500/20 p-4 rounded-xl text-xs space-y-2.5 animate-fadeIn">
+                          <p className="font-bold text-orange-400 border-b border-orange-500/20 pb-1 flex items-center gap-1">
+                            <span>📋</span> Dados do cadastro:
+                          </p>
+                          <p className="text-slate-300"><span className="font-semibold text-slate-400">Código:</span> {selectedPraca.cod}</p>
+                          <p className="text-slate-300"><span className="font-semibold text-slate-400">Endereço:</span> {selectedPraca.endereco}</p>
+                          <p className="text-slate-300"><span className="font-semibold text-slate-400">Bairro:</span> {selectedPraca.bairro}</p>
+                          <p className="text-slate-300"><span className="font-semibold text-slate-400">AP:</span> {selectedPraca.ap}</p>
+                          <p className="text-slate-300"><span className="font-semibold text-slate-400">UGU:</span> {selectedPraca.ugu}</p>
+                          <p className="text-slate-300"><span className="font-semibold text-slate-400">Tipo:</span> {selectedPraca.tipo}</p>
+                        </div>
+                      )}
+
+                      {/* Data de Programação */}
+                      {subFlow === 'vistoria' && selectedPraca && (
+                        <div className="bg-slate-900/50 border border-slate-800 p-4 rounded-xl text-xs space-y-3 animate-fadeIn">
+                          <p className="font-bold text-sky-400 flex items-center gap-1">
+                            <span>📅</span> Programação do serviço:
+                          </p>
+                          
+                          <div className="flex items-center space-x-2">
+                            <input 
+                              type="checkbox" 
+                              id="semDataProgDesktop"
+                              checked={semDataProgramacao} 
+                              onChange={(e) => setSemDataProgramacao(e.target.checked)}
+                              className="w-4 h-4 text-orange-600 bg-slate-700 border-slate-600 rounded focus:ring-orange-500 cursor-pointer"
+                            />
+                            <label htmlFor="semDataProgDesktop" className="text-xs text-slate-300 select-none cursor-pointer font-medium">
+                              Sem data de programação
+                            </label>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="block text-[11px] text-slate-400">Data Agendada:</label>
+                            <input 
+                              type="date"
+                              value={dataProgramacao}
+                              disabled={semDataProgramacao}
+                              onChange={(e) => setDataProgramacao(e.target.value)}
+                              className={`w-full bg-black border border-slate-700 rounded-lg p-2.5 text-xs text-slate-100 font-bold focus:ring-1 focus:ring-orange-500 ${semDataProgramacao ? 'opacity-40 cursor-not-allowed' : ''}`}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* NOVO: Campo Intervenções (Desktop) adicionado abaixo da programação de serviços */}
+                      {subFlow === 'vistoria' && selectedPraca && (
+                        <div className="bg-slate-900/50 border border-slate-800 p-4 rounded-xl text-xs space-y-3 mt-2 animate-fadeIn">
+                          <p className="font-bold text-sky-400 flex items-center gap-1">
+                            <span>🛠️</span> Intervenções:
+                          </p>
+                          <select 
+                            value={intervencao}
+                            onChange={(e) => setIntervencao(e.target.value)}
+                            className="w-full bg-black border border-slate-700 rounded-lg p-2.5 text-xs text-slate-100 font-bold focus:ring-1 focus:ring-orange-500"
+                          >
+                            <option value="" className="text-slate-500">Selecionar intervenção...</option>
+                            <option value="CAPINA/ROÇADA">CAPINA/ROÇADA</option>
+                            <option value="CONSERVAÇÃO DE JARDINS">CONSERVAÇÃO DE JARDINS</option>
+                            <option value="DESOBSTRUÇÃO DE CRAL/RAL">DESOBSTRUÇÃO DE CRAL/RAL</option>
+                            <option value="HIGIENIZAÇÃO DE PARCÃO">HIGIENIZAÇÃO DE PARCÃO</option>
+                            <option value="LIMPEZA/VARRIÇÃO">LIMPEZA/VARRIÇÃO</option>
+                            <option value="MANUTENÇÃO DE BRINQUEDOS">MANUTENÇÃO DE BRINQUEDOS</option>
+                            <option value="MANUTENÇÃO DE MOBILIÁRIO">MANUTENÇÃO DE MOBILIÁRIO</option>
+                            <option value="MANUTENÇÃO DE QUADRA">MANUTENÇÃO DE QUADRA</option>
+                            <option value="MANUTENÇÃO DE CERCAS/PORTÕES">MANUTENÇÃO DE CERCAS/PORTÕES</option>
+                            <option value="PODA DE ÁRVORE">PODA DE ÁRVORE</option>
+                            <option value="REMOÇÃO DE RESÍDUOS">REMOÇÃO DE RESÍDUOS</option>
+                            <option value="OUTROS">OUTROS</option>
+                          </select>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Seção 2: Equipe de Trabalho (Ergon + Adição Manual + Exclusão com lixeira) */}
+                    {subFlow === 'os' && (
+                      <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-xl">
+                        <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                          <h3 className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center gap-2">
+                            <span>👥</span> EQUIPE DO DIA (INTEGRAÇÃO ERGON)
+                          </h3>
+                          <button 
+                            onClick={() => setShowCustomMemberForm(!showCustomMemberForm)}
+                            className="bg-slate-900 text-orange-400 text-xs px-2.5 py-1 rounded border border-slate-750 font-bold hover:bg-slate-850"
+                          >
+                            {showCustomMemberForm ? "Fechar ✕" : "➕ Adicionar Fora da Lista"}
+                          </button>
+                        </div>
+
+                        {/* Formulário de Adição Manual no Computador */}
+                        {showCustomMemberForm && (
+                          <form onSubmit={handleAddCustomMember} className="bg-slate-900 p-3.5 rounded-xl border border-orange-500/30 space-y-3 animate-fadeIn">
+                            <p className="text-xs font-bold text-orange-400 flex items-center gap-1">➕ Cadastrar Funcionário:</p>
+                            <div className="grid grid-cols-2 gap-2">
+                              <input 
+                                type="text" 
+                                placeholder="Nome Completo" 
+                                value={customMemberName} 
+                                onChange={(e) => setCustomMemberName(e.target.value)}
+                                className="bg-slate-950 border border-slate-750 rounded p-2 text-xs text-slate-100"
+                                required
+                              />
+                              <input 
+                                type="text" 
+                                placeholder="Matrícula" 
+                                value={customMemberMatricula} 
+                                onChange={(e) => setCustomMemberMatricula(e.target.value)}
+                                className="bg-slate-950 border border-slate-750 rounded p-2 text-xs text-slate-100"
+                                required
+                              />
+                            </div>
+                            <button type="submit" className="w-full bg-orange-600 text-white text-xs font-bold py-2 rounded-lg">
+                              Confirmar Entrada na Equipe
+                            </button>
+                          </form>
+                        )}
+
+                        <div className="space-y-2 max-h-56 overflow-y-auto pr-1 scrollbar-thin">
+                          {EQUIPE_ERGON_MOCK.map((membro) => {
+                            const isSelected = selectedTeam.some(t => t.matricula === membro.matricula);
+                            return (
+                              <div 
+                                key={membro.matricula}
+                                className={`p-3 rounded-xl border flex justify-between items-center transition-all ${
+                                  isSelected 
+                                    ? 'bg-sky-500/10 border-sky-500 text-sky-400 font-bold' 
+                                    : 'bg-slate-900 border-slate-850 text-slate-300 hover:bg-slate-800'
+                                }`}
+                              >
+                                <div onClick={() => toggleTeamMember(membro)} className="flex-1 cursor-pointer">
+                                  <p className="text-xs font-bold">{membro.nome}</p>
+                                  <p className="text-[10px] text-slate-400">{membro.funcao} • Matrícula: {membro.matricula}</p>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <input type="checkbox" checked={isSelected} onChange={() => toggleTeamMember(membro)} className="rounded text-sky-600 focus:ring-sky-500" />
+                                  {isSelected && (
+                                    <button 
+                                      onClick={() => removeTeamMember(membro.matricula)}
+                                      className="text-red-400 hover:text-red-300 text-sm p-1"
+                                      title="Excluir funcionário da equipe"
+                                    >
+                                      🗑️
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+
+                          {/* Membros manuais */}
+                          {selectedTeam.filter(t => t.isCustom).map((custom) => (
+                            <div key={custom.matricula} className="p-3 rounded-xl border bg-orange-500/10 border-orange-500 text-orange-400 font-bold flex justify-between items-center transition-all">
+                              <div>
+                                <p className="text-xs">{custom.nome} <span className="bg-orange-600 text-white text-[8px] px-1 rounded">manual</span></p>
+                                <p className="text-[10px] text-slate-400">Matrícula: {custom.matricula}</p>
+                              </div>
+                              <button 
+                                onClick={() => removeTeamMember(custom.matricula)}
+                                className="text-red-400 hover:text-red-300 text-sm p-1"
+                              >
+                                🗑️
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Seção 3: Veículos e Frota */}
+                    {subFlow === 'os' && (
+                      <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-xl">
+                        <h3 className="text-xs font-bold text-slate-300 uppercase tracking-widest border-b border-slate-800 pb-2 flex items-center gap-2">
+                          <span>🚚</span> VEÍCULOS E FROTA
+                        </h3>
+                        
+                        <div className="space-y-3">
+                          <label className="block text-xs font-semibold text-slate-400">Selecione o Prefixo do Veículo:</label>
+                          <select 
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-100 font-bold focus:ring-1 focus:ring-orange-500"
+                            value={selectedFrota[0]?.prefixo || ''}
+                            onChange={(e) => {
+                              const selected = FROTA_MOCK.find(f => f.prefixo === e.target.value);
+                              setSelectedFrota(selected ? [selected] : []);
+                            }}
+                          >
+                            <option value="">Selecione o prefixo...</option>
+                            {FROTA_MOCK.map((veiculo) => (
+                              <option key={veiculo.prefixo} value={veiculo.prefixo}>
+                                {veiculo.prefixo} - {veiculo.modelo}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {selectedFrota.length > 0 && (
+                          <div className="bg-sky-500/10 border border-sky-500/20 p-3 rounded-lg text-xs space-y-1 animate-fadeIn">
+                            <p className="font-bold text-sky-400">Veículo Selecionado:</p>
+                            <p className="text-slate-300"><span className="font-semibold text-slate-400">Prefixo:</span> {selectedFrota[0].prefixo}</p>
+                            <p className="text-slate-300"><span className="font-semibold text-slate-400">Modelo:</span> {selectedFrota[0].modelo}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                  </div>
+
+                  {/* COLUNA DIREITA - CHECKLIST DA VISTORIA OU SERVIÇOS E MATERIAIS */}
+                  <div className="lg:col-span-8 space-y-6">
+                    
+                    {subFlow === 'vistoria' ? (
+                      /* APENAS CHECKLIST DE VISTORIA EM TELA CHEIA (Fase 1) */
+                      <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4 animate-fadeIn">
+                        <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+                          <div>
+                            <h3 className="text-sm font-extrabold text-orange-400 uppercase tracking-wider flex items-center gap-2">
+                              <span>🕵️</span> Vistoria
+                            </h3>
+                            <p className="text-xs text-slate-400 mt-1">Marque o estado encontrado de todos os brinquedos e estruturas da praça.</p>
+                          </div>
+                          <span className="bg-orange-500/10 text-orange-400 text-xs px-3 py-1 rounded font-bold border border-orange-500/20">VISTORIA</span>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-4">
+                          {ITENS_PRACA_MOCK.map((categoria) => (
+                            <div key={categoria.id} className="bg-slate-900/40 p-4 rounded-xl border border-slate-850 space-y-3">
+                              <p className="text-xs font-black text-slate-200 uppercase tracking-wide bg-slate-900 px-2.5 py-2 rounded">{categoria.categoria}</p>
+                              <div className="space-y-2">
+                                {categoria.itens.map((item) => {
+                                  const currentStatus = inspectionStatus[item];
+                                  return (
+                                    <div key={item} className="flex flex-col xl:flex-row xl:items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-slate-900 gap-3">
+                                      <span className="text-xs font-bold text-slate-200">{item}</span>
+                                      
+                                      {/* Menu de seleção (Dropdown) Alinhado ao Lado Direito, Fundo Totalmente Preto e Compacto */}
+                                      <select
+                                        value={currentStatus || ''}
+                                        onChange={(e) => handleItemStatus(item, e.target.value)}
+                                        className="bg-black border border-slate-800 text-slate-200 py-1 px-2 rounded-lg text-xs font-black focus:ring-1 focus:ring-orange-500 max-w-[40%] h-8"
+                                      >
+                                        <option value="">Selecionar...</option>
+                                        <option value="Bom estado" className="text-emerald-400">🟢 Bom estado</option>
+                                        <option value="Precisa de reparo" className="text-red-400">⚠️ Precisa de reparo</option>
+                                        <option value="Trocar" className="text-amber-400">🔄 Trocar</option>
+                                        <option value="Retirar" className="text-fuchsia-400">🚫 Retirar</option>
+                                        <option value="Não se aplica" className="text-slate-400">⚪ Não se aplica</option>
+                                      </select>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Ação de transição */}
+                        <div className="pt-4 border-t border-slate-800 flex justify-between items-center">
+                          <p className="text-xs text-slate-400">Tudo verificado? Próximo passo é abrir a Ordem de Serviço de reparos.</p>
+                          <button 
+                            onClick={() => { setSubFlow('os'); setStep(1); }}
+                            className="bg-sky-600 hover:bg-sky-500 text-white text-xs font-extrabold px-6 py-3 rounded-xl shadow-lg transition-all"
+                          >
+                            👷 Avançar para Abertura de O.S. ▶
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      /* MATERIAIS, EVIDÊNCIAS E FECHAMENTO DE OS (Fase 2 - NOVO FORMATO EM LINHA ÚNICA LADO A LADO) */
+                      <div className="space-y-6 animate-fadeIn">
+                        
+                        {/* Box de Serviços e Materiais Estilo Tabela Otimizada de Mesa */}
+                        <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-xl">
+                          <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                            <h3 className="text-xs font-bold text-slate-300 uppercase tracking-widest">
+                              🛠️ Serviços e Materiais
+                            </h3>
+                            <span className="text-[10px] bg-slate-800 text-slate-400 px-2.5 py-0.5 rounded font-mono">Boletim Dinâmico</span>
+                          </div>
+
+                          <p className="text-xs text-slate-400">Preencha as 6 colunas perfeitamente alinhadas em uma única linha horizontal.</p>
+
+                          {/* Cabeçalho de Tabela Horizontal */}
+                          <div className="hidden xl:grid grid-cols-12 gap-2 text-[10px] font-black text-slate-400 border-b border-slate-800 pb-1.5 px-1">
+                            <div className="col-span-2">1. SERVIÇO</div>
+                            <div className="col-span-1 text-center">QTD</div>
+                            <div className="col-span-3">2. ITEM</div>
+                            <div className="col-span-1 text-center">QTD</div>
+                            <div className="col-span-3">3. MATERIAL</div>
+                            <div className="col-span-1 text-center">QTD</div>
+                            <div className="col-span-1 text-center">AÇÃO</div>
+                          </div>
+
+                          {/* Renderização das Linhas Dinâmicas Horizontalizadas */}
+                          <div className="space-y-3 max-h-[380px] overflow-y-auto pr-2 scrollbar-thin">
+                            {servicosMateriaisRows.map((row, index) => (
+                              <div key={row.id} className="space-y-2.5 xl:space-y-0">
+                                <div className="grid grid-cols-1 xl:grid-cols-12 gap-2 bg-slate-900/40 xl:bg-transparent p-3.5 xl:p-0 rounded-xl border border-slate-850 xl:border-0 relative items-center">
+                                  
+                                  {/* Coluna 1: Serviço (Seletor) */}
+                                  <div className="col-span-1 xl:col-span-2">
+                                    <span className="block xl:hidden text-[9px] text-slate-500 font-bold mb-0.5">1. SERVIÇO</span>
+                                    <select
+                                      value={row.servico}
+                                      onChange={(e) => handleUpdateRowValue(row.id, 'servico', e.target.value)}
+                                      className="w-full bg-black border border-slate-800 p-2 rounded text-xs font-bold text-slate-100 focus:ring-1 focus:ring-orange-500 h-9"
+                                    >
+                                      <option value="" className="text-slate-500">Selecione...</option>
+                                      {SERVICOS_LIST.map(s => <option key={s} value={s}>{s}</option>)}
+                                    </select>
+                                  </div>
+
+                                  {/* Coluna 2: Qtd Serviço */}
+                                  <div className="col-span-1 xl:col-span-1">
+                                    <span className="block xl:hidden text-[9px] text-slate-500 font-bold mb-0.5">QTD SERVIÇO</span>
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      value={row.qtdServico}
+                                      onChange={(e) => handleUpdateRowValue(row.id, 'qtdServico', parseInt(e.target.value, 10) || 1)}
+                                      className="w-full bg-black border border-slate-800 p-2 rounded text-xs font-black text-center text-orange-400 focus:outline-none h-9"
+                                    />
+                                  </div>
+
+                                  {/* Coluna 3: Item (Seletor) */}
+                                  <div className="col-span-1 xl:col-span-3">
+                                    <span className="block xl:hidden text-[9px] text-slate-500 font-bold mb-0.5">2. ITEM</span>
+                                    <select
+                                      value={row.item}
+                                      onChange={(e) => handleUpdateRowValue(row.id, 'item', e.target.value)}
+                                      className="w-full bg-black border border-slate-800 p-2 rounded text-xs font-bold text-slate-100 focus:ring-1 focus:ring-orange-500 h-9"
+                                    >
+                                      <option value="" className="text-slate-500">Selecione o Item...</option>
+                                      {ITENS_LIST.map(item => <option key={item} value={item}>{item}</option>)}
+                                    </select>
+                                  </div>
+
+                                  {/* Coluna 4: Qtd Item */}
+                                  <div className="col-span-1 xl:col-span-1">
+                                    <span className="block xl:hidden text-[9px] text-slate-500 font-bold mb-0.5">QTD ITEM</span>
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      value={row.qtdItem}
+                                      onChange={(e) => handleUpdateRowValue(row.id, 'qtdItem', parseInt(e.target.value, 10) || 1)}
+                                      className="w-full bg-black border border-slate-800 p-2 rounded text-xs font-black text-center text-orange-400 focus:outline-none h-9"
+                                    />
+                                  </div>
+
+                                  {/* Coluna 5: Material (Seletor) */}
+                                  <div className="col-span-1 xl:col-span-3">
+                                    <span className="block xl:hidden text-[9px] text-slate-500 font-bold mb-0.5">3. MATERIAL</span>
+                                    <select
+                                      value={row.material}
+                                      onChange={(e) => handleUpdateRowValue(row.id, 'material', e.target.value)}
+                                      className="w-full bg-black border border-slate-800 p-2 rounded text-xs font-bold text-slate-100 focus:ring-1 focus:ring-orange-500 h-9"
+                                    >
+                                      <option value="" className="text-slate-500">Selecione o Material...</option>
+                                      {MATERIAIS_LIST.map(mat => <option key={mat} value={mat}>{mat}</option>)}
+                                    </select>
+                                  </div>
+
+                                  {/* Coluna 6: Qtd Material */}
+                                  <div className="col-span-1 xl:col-span-1">
+                                    <span className="block xl:hidden text-[9px] text-slate-500 font-bold mb-0.5">QTD MATERIAL</span>
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      value={row.qtdMaterial}
+                                      onChange={(e) => handleUpdateRowValue(row.id, 'qtdMaterial', parseInt(e.target.value, 10) || 1)}
+                                      className="w-full bg-black border border-slate-800 p-2 rounded text-xs font-black text-center text-orange-400 focus:outline-none h-9"
+                                    />
+                                  </div>
+
+                                  {/* Coluna de Ações (Excluir Lixeira alinhado no final) */}
+                                  <div className="col-span-1 xl:col-span-1 flex items-center justify-end xl:justify-center gap-1.5 mt-3 xl:mt-0">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveRow(row.id)}
+                                      className="bg-red-950/40 hover:bg-red-950 border border-red-900/40 text-red-400 p-2 rounded-lg text-xs"
+                                      title="Excluir Linha"
+                                    >
+                                      🗑️
+                                    </button>
+                                  </div>
+
+                                </div>
+
+                                {/* Botão de incluir (+) perfeitamente alinhado abaixo de cada linha */}
+                                <div className="flex justify-start xl:pl-1 mt-1 pb-3 xl:pb-2 border-b border-slate-850 xl:border-b-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAddRow(index)}
+                                    className="text-[11px] text-sky-400 hover:text-sky-300 font-bold flex items-center gap-1 bg-sky-950/30 hover:bg-sky-950/60 px-3 py-1.5 rounded-lg border border-sky-900/30"
+                                  >
+                                    ➕ Incluir outra linha
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Comprovação e Notas no Computador */}
+                        <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+                          <h3 className="text-xs font-bold text-slate-300 uppercase tracking-widest border-b border-slate-800 pb-2">
+                            <span>📸</span> ANEXOS DE FOTOS E COMPROVANTES
+                          </h3>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 text-center space-y-3">
+                              <span className="text-[10px] font-bold text-slate-400 block">CARREGAR FOTOS DE COMPROVAÇÃO DE CAMPO</span>
+                              <div className="grid grid-cols-2 gap-2">
+                                <button onClick={() => addMockPhoto('antes')} className="bg-slate-850 hover:bg-slate-800 text-[10px] py-2 rounded font-bold border border-slate-750">Antes (Danificado)</button>
+                                <button onClick={() => addMockPhoto('depois')} className="bg-slate-850 hover:bg-slate-800 text-[10px] py-2 rounded font-bold border border-slate-750">Depois (Reparado)</button>
+                              </div>
+                              <div className="flex flex-wrap gap-2 justify-center">
+                                {photosBefore.map(p => <img key={p.id} src={p.url} className="w-10 h-10 object-cover rounded border border-red-500/50" title="Antes" />)}
+                                {photosAfter.map(p => <img key={p.id} src={p.url} className="w-10 h-10 object-cover rounded border border-emerald-500/50" title="Depois" />)}
+                              </div>
+                            </div>
+
+                            <div className="space-y-4 flex flex-col justify-between">
+                              <div className="space-y-2">
+                                <label className="block text-xs font-semibold text-slate-400">⏱️ Duração do serviço de manutenção (Dias):</label>
+                                <div className="flex items-center space-x-3 bg-slate-900 p-2 rounded-lg border border-slate-800">
+                                  <button onClick={() => setDurationDays(Math.max(1, durationDays - 1))} className="w-10 h-10 bg-slate-800 hover:bg-slate-700 text-lg font-bold rounded-lg">-</button>
+                                  <input type="number" value={durationDays} readOnly className="w-full bg-transparent text-center font-bold text-sm text-orange-400" />
+                                  <button onClick={() => setDurationDays(durationDays + 1)} className="w-10 h-10 bg-slate-800 hover:bg-slate-700 text-lg font-bold rounded-lg">+</button>
+                                </div>
+                              </div>
+
+                              <div className="space-y-2">
+                                <label className="block text-xs font-semibold text-slate-400">📝 Notas da Execução:</label>
+                                <textarea value={observacao} onChange={(e) => setObservacao(e.target.value)} placeholder="Detalhes extras..." className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs h-16 resize-none" />
+                              </div>
+
+                              <div className="flex items-center justify-between p-3 bg-slate-900 rounded-xl border border-slate-800">
+                                <div>
+                                  <p className="text-xs font-bold">Assinatura Eletrônica</p>
+                                  <p className="text-[10px] text-slate-500">Validação Digital Administrativa</p>
+                                </div>
+                                {signature ? (
+                                  <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold px-2.5 py-1 rounded">✅ Assinado</span>
+                                ) : (
+                                  <button onClick={() => setSignature(true)} className="bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold px-4 py-2 rounded-lg">✍️ Validar e Assinar</button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Ações de mesa */}
+                        <div className="flex justify-end space-x-3 pt-4 border-t border-slate-800">
+                          <button onClick={resetForm} className="bg-slate-850 hover:bg-slate-800 text-slate-300 font-bold px-6 py-3 rounded-xl border border-slate-700 text-xs">Limpar Tudo</button>
+                          <button onClick={handleSubmitService} disabled={isSyncing} className="bg-emerald-600 hover:bg-emerald-500 font-bold px-8 py-3 rounded-xl text-xs text-white transition-all shadow-lg">
+                            {isSyncing ? 'Sincronizando com Servidores Comlurb...' : 'Sincronizar Ordem de Serviço 📦'}
+                          </button>
+                        </div>
+
+                      </div>
+                    )}
+
+                  </div>
+
+                </div>
+              ) : (
+                /* RECIBO / ORDEM DE SERVIÇO COMPLETA IMPRESSA DO COMPUTADOR (INCORPORADO O NOVO MODELO DE SERVIÇOS E MATERIAIS) */
+                <div className="max-w-3xl mx-auto bg-slate-950 border border-slate-800 rounded-2xl p-8 shadow-2xl space-y-6 animate-scaleUp">
+                  
+                  <div className="border-b border-slate-800 pb-6 flex justify-between items-start">
+                    <div className="space-y-1">
+                      <div className="bg-orange-600 text-white font-extrabold px-3 py-1 rounded text-sm tracking-wider inline-block">COMLURB RJ</div>
+                      <h2 className="text-xl font-black">Ordem de Serviço de Manutenção de Praças</h2>
+                      <p className="text-xs text-slate-400 font-medium">Setor de Parques, Praças e Parcões</p>
+                    </div>
+                    <div className="text-right">
+                      <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-bold px-3 py-1 rounded-full uppercase">Sincronizado</span>
+                      <p className="text-[11px] text-slate-400 mt-2">ID OS: OS-{Math.floor(100000 + Math.random() * 900000)}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs text-slate-300">
+                    <div className="space-y-2">
+                      <p><strong className="text-slate-400">🕵️ Vistoriador Responsável:</strong> {vistoriadorNome || 'Não Informado'} ({vistoriadorMatricula || 'S/M'})</p>
+                      <p><strong className="text-slate-400">📋 Tipo de Entrada:</strong> {tipoEntrada} | <strong className="text-slate-400">📅 Data da Vistoria:</strong> {dataVistoria}</p>
+                      <p><strong className="text-slate-400">📅 Programação:</strong> {semDataProgramacao ? "Sem data de programação" : dataProgramacao} | <strong className="text-slate-400">🛠️ Intervenção:</strong> {intervencao || 'Não Selecionada'}</p>
+                      <p><strong className="text-slate-400">📍 Localização:</strong> {selectedPraca?.nome} - {selectedPraca?.bairro}</p>
+                      <p><strong className="text-slate-400">⏱️ Duração do Serviço:</strong> {durationDays} {durationDays === 1 ? 'Dia' : 'Dias'}</p>
+                      <p><strong className="text-slate-400">👥 Equipe Trabalhadora (Ergon):</strong> {selectedTeam.map(t => `${t.nome} (Matr: ${t.matricula})`).join(', ') || 'Nenhum'}</p>
+                    </div>
+                    <div className="space-y-2">
+                      <p><strong className="text-slate-400">🚛 Frota Registrada:</strong> {selectedFrota.map(f => `${f.prefixo} (${f.modelo})`).join(' | ') || 'Nenhum'}</p>
+                      <p><strong className="text-slate-400">📝 Notas Extras:</strong> {observacao || 'Nenhuma.'}</p>
+                      <p><strong className="text-slate-400">✍️ Responsável da Digitação:</strong> Carlos Alberto Silva</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-900 border border-slate-850 rounded-xl p-4 space-y-3">
+                    <p className="text-xs font-bold text-slate-200">🛠️ Serviços e Materiais Aplicados:</p>
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-slate-850 text-slate-400">
+                          <th className="pb-2">Serviço (Qtd)</th>
+                          <th className="pb-2">Item (Qtd)</th>
+                          <th className="pb-2">Material (Qtd)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {servicosMateriaisRows.map((r, index) => (
+                          <tr key={index} className="border-b border-slate-800/40 last:border-0 text-slate-300">
+                            <td className="py-2.5 font-medium">{r.servico || "—"} ({r.qtdServico})</td>
+                            <td className="py-2.5 text-slate-400">{r.item || "—"} ({r.qtdItem})</td>
+                            <td className="py-2.5 font-bold text-orange-400">{r.material || "—"} ({r.qtdMaterial})</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="flex justify-between items-center pt-4 border-t border-slate-800">
+                    <button onClick={() => window.print()} className="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold py-2.5 px-5 rounded-xl border border-slate-700">🖨️ Imprimir Ordem de Serviço</button>
+                    <button onClick={resetForm} className="bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold py-2.5 px-6 rounded-xl shadow-md">Iniciar Novo Lançamento</button>
+                  </div>
+
+                </div>
+              )}
+
+            </main>
+          )}
+
+          {/* --- MODAL DE DETALHES DE CONFORMIDADE COM O TR --- */}
+          {showComplianceModal && (
+            <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 animate-fadeIn">
+              <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto space-y-4">
+                <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+                  <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">📋 Rastreamento de Requisitos do Termo de Referência</h3>
+                  <button onClick={() => setShowComplianceModal(false)} className="text-slate-400 hover:text-slate-100 font-extrabold text-lg">✕</button>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex gap-3 text-xs">
+                    <span className="text-emerald-500 font-bold text-lg">✓</span>
+                    <div>
+                      <strong className="text-slate-200">Localização das Praças (ANEXO I):</strong>
+                      <p className="text-slate-400 mt-1">O app usa geolocalização para sugerir a praça mais próxima de forma dinâmica.</p>
+                    </div>
+                  </div>
+                  <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex gap-3 text-xs">
+                    <span className="text-emerald-500 font-bold text-lg">✓</span>
+                    <div>
+                      <strong className="text-slate-200">Cadastro de Itens de Vistoria (ANEXO II):</strong>
+                      <p className="text-slate-400 mt-1">Checklist completo com brinquedos, mobiliários e cercas.</p>
+                    </div>
+                  </div>
+                  <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex gap-3 text-xs">
+                    <span className="text-emerald-500 font-bold text-lg">✓</span>
+                    <div>
+                      <strong className="text-slate-200">Registro de Materiais (ANEXO IV):</strong>
+                      <p className="text-slate-400 mt-1">Permite computar todos os consumos de campo, com cliques ou teclado.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button onClick={() => setShowComplianceModal(false)} className="bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs py-2 px-4 rounded-lg">Entendi</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* --- FOOTER --- */}
+          <footer className="bg-slate-950 border-t border-slate-800 text-slate-500 text-xs py-3 text-center shrink-0">
+            <p>© 2026 COMLURB RJ - Divisão de Parques, Praças e Parcões. Protótipo de Alta Fidelidade.</p>
+          </footer>
+
+        </div>
+      );
+    }
+
+    // Inicialização do React dentro do HTML único
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
